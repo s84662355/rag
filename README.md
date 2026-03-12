@@ -19,6 +19,21 @@
 - 文档删除接口
 - 文档重建索引接口
 
+## 界面截图
+
+### 知识库与文档
+
+![知识库与文档页面](docs/70ad2e87-6948-401e-8b0e-abfe8bc30fed.png)
+
+### QA 生成
+
+![QA 生成页面](docs/e5537bd5-e5d3-4ea8-b785-688556fa34f2.png)
+
+### 对话
+
+![对话页面](docs/e739fbbb-802c-44e9-bdaf-a7b5ba4bbd32.png)
+
+
 ## 项目结构
 
 ```text
@@ -103,3 +118,5 @@ server:
 - `POST /api/qa/generate`
 - `GET /api/qa?doc_id=...`
 - `POST /api/chat`
+
+ 
