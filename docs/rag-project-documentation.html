@@ -1,0 +1,531 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Go + Vue RAG 项目技术文档</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #182230;
+      --sub: #5f6f86;
+      --line: #dce3ef;
+      --brand: #1a73e8;
+      --ok: #11835a;
+      --warn: #b26b12;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 500px at 10% -10%, rgba(26,115,232,.14), transparent 60%), var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 26px 16px 48px;
+    }
+    .hero {
+      background: linear-gradient(135deg, #11223f 0%, #173768 58%, #1f4f8f 100%);
+      color: #f2f7ff;
+      border-radius: 16px;
+      padding: 26px;
+      box-shadow: 0 10px 26px rgba(13, 29, 58, .24);
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      margin: 0 0 6px;
+      font-size: 30px;
+      letter-spacing: .3px;
+    }
+    .hero .meta {
+      opacity: .86;
+      font-size: 14px;
+    }
+    .toc, section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      margin-top: 14px;
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      border-left: 4px solid var(--brand);
+      padding-left: 10px;
+    }
+    h3 {
+      margin: 14px 0 8px;
+      font-size: 18px;
+      color: #20395f;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 12px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #eef4ff;
+      color: #29456e;
+      font-weight: 600;
+    }
+    pre {
+      background: #0f1b2e;
+      color: #dce9ff;
+      border-radius: 10px;
+      border: 1px solid #2a3b58;
+      padding: 12px;
+      overflow: auto;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    code {
+      background: #eef3f9;
+      border: 1px solid #d9e3f0;
+      border-radius: 4px;
+      padding: 0 5px;
+      font-size: .92em;
+    }
+    .feature {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fbfdff;
+    }
+    .feature h4 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      color: #21436e;
+    }
+    .tag {
+      display: inline-block;
+      font-size: 12px;
+      border: 1px solid #cfdcf2;
+      color: #3f5f90;
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-left: 6px;
+      background: #f4f8ff;
+    }
+    .ok { color: var(--ok); font-weight: 600; }
+    .warn { color: var(--warn); font-weight: 600; }
+    ul { margin: 8px 0 8px 18px; }
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <h1>Go + Vue RAG 项目技术文档（实现方案版）</h1>
+      <div class="meta">
+        文档版本：v1.0 | 适配代码基线：当前工作区 | 日期：2026-03-12
+      </div>
+    </header>
+
+    <section class="toc">
+      <h2>目录</h2>
+      <ol>
+        <li>项目目标与边界</li>
+        <li>系统架构与数据流</li>
+        <li>模块划分与职责</li>
+        <li>数据模型与索引设计</li>
+        <li>配置项说明</li>
+        <li>功能实现方案（逐项）</li>
+        <li>API 一览（按页面能力）</li>
+        <li>前端实现方案（Vue 框架）</li>
+        <li>部署与运行流程</li>
+        <li>运维与故障处理</li>
+        <li>后续可扩展建议</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>1. 项目目标与边界</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>核心目标</h3>
+          <ul>
+            <li>构建可落地的 RAG 问答系统，支持文档与网页知识接入。</li>
+            <li>实现完整链路：<code>改写 -> 检索 -> 重排 -> 生成 -> 多轮记忆</code>。</li>
+            <li>保证知识可维护：支持文档删除、重建索引、Chunk 编辑。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>技术边界</h3>
+          <ul>
+            <li>后端：Go 原生 <code>net/http</code>（不依赖后端 Web 框架）。</li>
+            <li>前端：Vue 3 + Vite + vue-router（标准前端框架工程）。</li>
+            <li>存储：MySQL（结构化元数据）+ Elasticsearch（向量/关键词检索）。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. 系统架构与数据流</h2>
+      <h3>2.1 总体架构</h3>
+      <pre>Vue 管理后台
+  -> HTTP API (internal/httpapi)
+      -> RAG Service (internal/service)
+          -> Parser / Chunker / Embedding / LLM / Vector / Store
+              -> MySQL (documents/chunks/qa_pairs/kbs)
+              -> Elasticsearch (rag index, dense_vector + text)</pre>
+
+      <h3>2.2 两条主流程</h3>
+      <div class="grid-2">
+        <div class="card">
+          <strong>入库流程</strong>
+          <pre>上传文件/网页
+-> 解析文本
+-> 文本切块
+-> 写入 chunks 表
+-> embedding 向量化
+-> 写入 ES 索引
+-> document 状态置 ready</pre>
+        </div>
+        <div class="card">
+          <strong>问答流程</strong>
+          <pre>用户问题
+-> Rewrite（可选）
+-> Query Embedding
+-> Dense Search + Keyword Search
+-> RRF 融合
+-> Rerank（可选）
+-> QA / Chat 生成答案
+-> session 追加历史</pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. 模块划分与职责</h2>
+      <table>
+        <thead>
+          <tr><th>模块</th><th>路径</th><th>职责</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>启动入口</td><td><code>cmd/server/main.go</code></td><td>加载配置、初始化依赖、启动 HTTP 服务。</td></tr>
+          <tr><td>HTTP API</td><td><code>internal/httpapi</code></td><td>路由、参数校验、JSON 输出、全局 panic 保护。</td></tr>
+          <tr><td>业务编排</td><td><code>internal/service/rag.go</code></td><td>所有 RAG 主流程（入库、检索、QA、Chat、重建索引）。</td></tr>
+          <tr><td>解析层</td><td><code>internal/parser/parser.go</code></td><td>md/pdf/html/txt + 网页正文提取。</td></tr>
+          <tr><td>切块层</td><td><code>internal/chunker/chunker.go</code></td><td>长文档分块、重叠策略、token 粗估。</td></tr>
+          <tr><td>向量层</td><td><code>internal/vector/es.go</code></td><td>索引创建、向量写入、dense/keyword 检索与 RRF 融合。</td></tr>
+          <tr><td>Embedding</td><td><code>internal/embedding/ollama.go</code></td><td>调用 Ollama Embedding API。</td></tr>
+          <tr><td>LLM</td><td><code>internal/llm/deepseek.go</code></td><td>统一 DeepSeek Chat 调用（rewrite/rerank/qa/chat）。</td></tr>
+          <tr><td>存储层</td><td><code>internal/store</code></td><td>MySQL CRUD：知识库、文档、Chunk、QA。</td></tr>
+          <tr><td>前端</td><td><code>web/src</code></td><td>左侧菜单 + 多页面路由 + API 调用状态管理。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>4. 数据模型与索引设计</h2>
+      <h3>4.1 MySQL 表</h3>
+      <table>
+        <thead>
+          <tr><th>表名</th><th>关键字段</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>knowledge_bases</code></td><td><code>id, name</code></td><td>知识库主表，所有数据按 <code>kb_id</code> 隔离。</td></tr>
+          <tr><td><code>documents</code></td><td><code>kb_id, raw_text, status</code></td><td>原始文档及状态（processing/ready/failed）。</td></tr>
+          <tr><td><code>chunks</code></td><td><code>doc_id, chunk_index, content</code></td><td>文档分片内容；唯一键 <code>(doc_id, chunk_index)</code>。</td></tr>
+          <tr><td><code>qa_pairs</code></td><td><code>doc_id, question, answer</code></td><td>自动生成 QA 对，关联来源分片。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>4.2 Elasticsearch 索引（rag）</h3>
+      <ul>
+        <li>字段：<code>chunk_id</code>、<code>doc_id</code>、<code>kb_id</code>、<code>content</code>、<code>content_vector</code></li>
+        <li>向量类型：<code>dense_vector</code>（cosine similarity）</li>
+        <li>当前策略：<code>1 shard / 0 replica</code>（单机环境稳定优先）</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>5. 配置项说明</h2>
+      <pre>server.addr              HTTP 服务地址（默认 :8080）
+server.staticDir         静态资源目录（当前 web/dist）
+mysql.dsn                MySQL 连接
+vector.*                 ES 地址、索引名、向量维度
+embedding.*              Ollama embedding 接口与模型
+rewrite/rerank/qa/chat   DeepSeek 接口与模型
+chunk.maxChars           切块最大字符数
+chunk.overlap            相邻块重叠长度</pre>
+      <p class="warn">建议将 API Key 从配置文件迁移到环境变量，避免明文入仓。</p>
+    </section>
+
+    <section>
+      <h2>6. 功能实现方案（逐项）</h2>
+
+      <article class="feature">
+        <h4>6.1 文档解析（md/pdf/html/txt）<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>入口接口：</strong><code>POST /api/documents/upload</code></li>
+          <li><strong>实现步骤：</strong>按扩展名分流 -> 解析为纯文本 -> 规范化换行/空行。</li>
+          <li><strong>PDF 特殊处理：</strong>增加文件头校验与 <code>recover</code>，异常 PDF 返回错误，不再导致服务 panic。</li>
+          <li><strong>代码落点：</strong><code>internal/parser/parser.go</code></li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.2 网页解析<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>入口接口：</strong><code>POST /api/documents/url</code></li>
+          <li><strong>实现步骤：</strong>HTTP 抓取 -> DOM 解析 -> 过滤 script/style -> 汇总正文文本。</li>
+          <li><strong>输出：</strong>标题 + 正文，进入统一入库流水线。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.3 长文档自动切块（Chunk）<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>策略：</strong>按字符窗口切块，支持重叠；优先在标点/换行处分断，减少语义截断。</li>
+          <li><strong>参数：</strong><code>chunk.maxChars</code>、<code>chunk.overlap</code></li>
+          <li><strong>代码：</strong><code>internal/chunker/chunker.go</code></li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.4 Embedding 向量化<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>模型：</strong>Ollama <code>bge-m3</code></li>
+          <li><strong>步骤：</strong>每个 chunk 调用 embedding API -> 向量写入 ES 文档。</li>
+          <li><strong>异常：</strong>任一 chunk 失败，文档状态标记 <code>failed</code> 并记录错误。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.5 多知识库支持<span class="tag">已实现</span></h4>
+        <ul>
+          <li>所有文档/分片/检索均带 <code>kb_id</code>，在 SQL 与 ES 侧双重过滤。</li>
+          <li>支持创建、查询、删除知识库。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.6 文档检索（RAG 检索层）<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>入口：</strong><code>POST /api/search</code></li>
+          <li><strong>检索对象：</strong>chunk，而不是整文档。</li>
+          <li><strong>返回：</strong>命中分片内容、分数、来源类型。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.7 多路召回（Dense + Keyword）<span class="tag">已实现</span></h4>
+        <ul>
+          <li>并发执行向量检索和关键词检索。</li>
+          <li>使用 RRF（Reciprocal Rank Fusion）融合排序，提升鲁棒性。</li>
+          <li>调试接口可查看融合前结果：<code>POST /api/retrieve/debug</code></li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.8 问题改写（Rewrite）<span class="tag">已实现</span></h4>
+        <ul>
+          <li>在检索前调用 LLM 做语义标准化，优化召回质量。</li>
+          <li>可通过请求参数 <code>use_rewrite</code> 开关控制。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.9 重排序（Rerank）<span class="tag">已实现</span></h4>
+        <ul>
+          <li>对候选 chunk 做二次相关性排序。</li>
+          <li>实现方式：LLM 输出 chunk id 顺序，服务端回填排序。</li>
+          <li>可通过 <code>use_rerank</code> 开关控制。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.10 QA 自动生成<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>入口：</strong><code>POST /api/qa/generate</code></li>
+          <li>按文档分片逐段生成问答对，写入 <code>qa_pairs</code>。</li>
+          <li>用于后续训练集准备、FAQ 构建或人工审核。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.11 多轮对话（Chat）<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>入口：</strong><code>POST /api/chat</code></li>
+          <li>会话维度：<code>session_id</code>；服务端保存最近 N 轮上下文。</li>
+          <li>回答时注入“检索上下文 + 历史上下文”。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.12 Chunk 编辑<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>入口：</strong><code>PUT /api/chunks/{id}</code></li>
+          <li>编辑后自动重新 embedding 并覆盖 ES 对应分片文档。</li>
+          <li>保证“可编辑知识”与“检索索引”一致。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.13 文档删除<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>入口：</strong><code>DELETE /api/documents/{id}</code></li>
+          <li>先删 ES 索引数据（按 doc_id），再删 MySQL 文档记录。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.14 文档重建索引<span class="tag">已实现</span></h4>
+        <ul>
+          <li><strong>入口：</strong><code>POST /api/documents/{id}/reindex</code></li>
+          <li>基于 <code>documents.raw_text</code> 重新切块、重向量化、重建 ES 数据。</li>
+          <li>重建前会清理旧 chunks 与旧 qa_pairs，避免脏数据。</li>
+        </ul>
+      </article>
+
+      <article class="feature">
+        <h4>6.15 服务稳定性保护<span class="tag">已实现</span></h4>
+        <ul>
+          <li>HTTP 全局 recover，panic 不会打崩整个服务。</li>
+          <li>PDF 解析层独立 recover + 合法性校验。</li>
+          <li>健康检查接口：<code>GET /api/health</code>。</li>
+        </ul>
+      </article>
+    </section>
+
+    <section>
+      <h2>7. API 一览（按页面能力）</h2>
+      <table>
+        <thead><tr><th>能力域</th><th>接口</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>健康检查</td><td><code>GET /api/health</code></td><td>检查 MySQL 与 ES 可用性。</td></tr>
+          <tr><td>知识库</td><td><code>GET/POST /api/kbs</code>、<code>DELETE /api/kbs/{id}</code></td><td>知识库增删查。</td></tr>
+          <tr><td>文档</td><td><code>POST /api/documents/upload</code>、<code>POST /api/documents/url</code>、<code>GET /api/documents</code></td><td>文档接入与列表。</td></tr>
+          <tr><td>文档维护</td><td><code>DELETE /api/documents/{id}</code>、<code>POST /api/documents/{id}/reindex</code></td><td>删除与重建索引。</td></tr>
+          <tr><td>分片</td><td><code>GET /api/chunks</code>、<code>PUT /api/chunks/{id}</code></td><td>分片查询与编辑。</td></tr>
+          <tr><td>检索</td><td><code>POST /api/search</code>、<code>POST /api/retrieve/debug</code></td><td>正式检索与调试模式。</td></tr>
+          <tr><td>QA</td><td><code>POST /api/qa/generate</code>、<code>GET /api/qa</code></td><td>自动生成/查询 QA 对。</td></tr>
+          <tr><td>对话</td><td><code>POST /api/chat</code></td><td>多轮问答（session 记忆）。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>8. 前端实现方案（Vue）</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>工程结构</h3>
+          <pre>web/
+  src/
+    App.vue                 左侧菜单 + 顶部栏布局
+    router/index.js         页面路由
+    composables/useRagConsole.js 共享状态+API调用
+    views/*.vue             各功能页
+  package.json
+  vite.config.js</pre>
+        </div>
+        <div class="card">
+          <h3>界面规划</h3>
+          <ul>
+            <li>左侧菜单：概览、知识库与文档、分片编辑、检索调试、QA、对话、日志。</li>
+            <li>右侧内容区：按路由切换页面，所有页面共享同一状态仓（composable）。</li>
+            <li>重点操作（删文档、重建索引）放在文档列表行内按钮，便于运维。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>9. 部署与运行流程</h2>
+      <h3>9.1 构建前端</h3>
+      <pre>cd web
+npm install
+npm run build</pre>
+      <h3>9.2 启动后端</h3>
+      <pre>cd D:\work\test\rag
+set RAG_CONFIG=D:\work\test\rag\config.yaml
+.\bin\rag-server.exe</pre>
+      <h3>9.3 访问</h3>
+      <p><code>http://127.0.0.1:8080/</code></p>
+    </section>
+
+    <section>
+      <h2>10. 运维与故障处理</h2>
+      <h3>10.1 Elasticsearch 分片不可用（primary shard not active）</h3>
+      <ul>
+        <li>典型原因：磁盘水位超限导致分片无法分配。</li>
+        <li>现有改进：索引副本固定为 0，降低单机分片分配压力。</li>
+        <li>建议：优先清理磁盘空间；开发环境可临时放宽分配阈值。</li>
+      </ul>
+
+      <h3>10.2 PDF 异常文件导致 panic</h3>
+      <ul>
+        <li>现已在解析层和 HTTP 层双重 recover，坏文件只返回错误，不会崩服务。</li>
+      </ul>
+
+      <h3>10.3 状态判定</h3>
+      <ul>
+        <li><span class="ok">ready</span>：文档入库、向量化、索引完成。</li>
+        <li><span class="warn">failed</span>：流程中断，查看 <code>documents.error_msg</code> 定位原因。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>11. 后续可扩展建议</h2>
+      <div class="grid-3">
+        <div class="card">
+          <h3>检索质量</h3>
+          <ul>
+            <li>接入专用 rerank 模型 API。</li>
+            <li>引入分片摘要字段，降低冗余。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>工程能力</h3>
+          <ul>
+            <li>将导入流程改造为异步任务队列。</li>
+            <li>新增批量导入和进度追踪。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>安全与治理</h3>
+          <ul>
+            <li>API Key 改为环境变量托管。</li>
+            <li>增加用户鉴权与知识库权限模型。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

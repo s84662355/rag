@@ -1,0 +1,9 @@
+.idea/
+.vscode/
+*.log
+*.exe
+tmp/
+bin/
+dist/
+node_modules/
+config.yaml

@@ -1,0 +1,41 @@
+server:
+  addr: ":8080"
+  staticDir: "web/dist"
+
+mysql:
+  dsn: "root:123456@tcp(127.0.0.1:3306)/rag?loc=Local&parseTime=true"
+
+vector:
+  type: "es"
+  indexName: "rag"
+  dims: 1024
+  es:
+    address: "http://127.0.0.1:9200"
+
+embedding:
+  baseURL: "http://localhost:11434/api/embed"
+  model: "bge-m3"
+
+rerank:
+  apiKey: "sk-0sg43t54y5hkuykia086d"
+  baseURL: "https://api.deepseek.com/chat/completions"
+  model: "deepseek-chat"
+
+rewrite:
+  apiKey: "sk-0sg43t54y5hkuykia086d"
+  baseURL: "https://api.deepseek.com/chat/completions"
+  model: "deepseek-chat"
+
+qa:
+  apiKey: "sk-0sg43t54y5hkuykia086d"
+  baseURL: "https://api.deepseek.com/chat/completions"
+  model: "deepseek-chat"
+
+chat:
+  apiKey: "sk-0sg43t54y5hkuykia086d"
+  baseURL: "https://api.deepseek.com/chat/completions"
+  model: "deepseek-chat"
+
+chunk:
+  maxChars: 900
+  overlap: 120
